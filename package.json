@@ -1,0 +1,28 @@
+{
+  "name": "triec-application-access",
+  "version": "1.0.0",
+  "description": "This contains the resources for inviting users, registration and login",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "author": "Gomathi",
+  "license": "ISC",
+  "devDependencies": {
+    "@aws-sdk/client-kms": "^3.576.0",
+    "@aws-sdk/client-rds-data": "^3.572.0",
+    "@aws-sdk/client-ses": "^3.568.0",
+    "@aws-sdk/client-sns": "^3.576.0",
+    "@aws-sdk/client-ssm": "^3.575.0",
+    "@types/aws-lambda": "^8.10.137",
+    "@types/node": "^20.12.11",
+    "@types/pg": "^8.11.6",
+    "aws-lambda": "^1.0.7",
+    "typescript": "5.4.5"
+  },
+  "dependencies": {
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.5"
+  }
+}

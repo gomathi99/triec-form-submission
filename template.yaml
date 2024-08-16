@@ -1,0 +1,167 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Resouces for invitng users, registration and login
+
+Parameters:
+  StackCode:
+    Type: String
+    Description: Stack Code to be used for the stack and resources
+    Default: ''
+  SubnetIds:
+    Type: 'AWS::SSM::Parameter::Value<List<String>>'
+    Description: Contains the Subnet Ids
+    Default: '/triec/subIds'
+  SecurityGroupIds:
+    Type: 'AWS::SSM::Parameter::Value<List<String>>'
+    Description: Contains the security Group Ids
+    Default: '/triec/securityGroupIDs'
+  
+
+Globals:
+  Api:
+    OpenApiVersion: 3.0.1
+    MethodSettings:
+      - ResourcePath: "/*"
+        HttpMethod: "*"
+        ThrottlingBurstLimit: 30
+        ThrottlingRateLimit: 10
+        CachingEnabled: false
+        DataTraceEnabled: true
+        LoggingLevel: INFO
+        MetricsEnabled: false
+    AccessLogSetting:
+      DestinationArn: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/access-log
+      Format: '$context.identity.sourceIp - - [$context.requestTime] "$context.httpMethod $context.routeKey $context.protocol" $context.status $context.responseLength $context.requestId $context.integrationLatency'
+    Cors:
+      AllowMethods: "'POST,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+
+      
+
+Resources:
+
+  ApplicationSubmissionAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      DefinitionBody:
+        openapi: "3.0.1"
+        info:
+          title: "Triec-Application-Submission-Api"
+          version: "1.0.0"
+        paths:
+          /submit-application:
+            post:
+              summary: Submit application for the mentorship program
+              description: This API is responsible for allowing the users to submit the application for the mentorship program
+              requestBody:
+                required: true
+                content:
+                  application/vnd.api+json:
+                    schema:
+                      $ref: "#/components/schemas/applicationSubmission"             
+                responses:
+                  '204':
+                    description: >
+                      Application submitted successfully
+                    
+                  '400':
+                    description: >
+                      SUBx100 - Bad request - consent is missing or subscription is missing
+                    content:
+                      application/vnd.api+json:
+                        schema:
+                          $ref: '#/components/schemas/error'
+                    
+                  '500':
+                    description: >
+                      SUBx000 - Internal server error - might be due the failure while submitting the application
+                    content:
+                      application/vnd.api+json:
+                        schema:
+                          $ref: '#/components/schemas/error'
+              x-amazon-apigateway-integration:
+                type: "aws_proxy"
+                uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TriecSubmitApplication.Arn}:live/invocations
+                httpMethod: "POST"
+                passthroughBehavior: "when_no_match"
+                contentHandling: "CONVERT_TO_TEXT"
+              x-amazon-apigateway-request-validator: "Validate body, query string parameters, and headers"
+        x-amazon-apigateway-request-validators:
+          Validate body, query string parameters, and headers:
+            validateRequestParameters: true
+            validateRequestBody: true
+            validateRequestHeaders: true
+        components:
+          schemas:
+            applicationSubmission:
+              type: object
+              required:
+                - data
+              properties:
+                data:
+                  type: object
+                  required:
+                    - type
+                    - attributes
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - submit-application
+                      example: "submit-application"
+                      description: Type of the request
+                    attributes:
+                      type: object
+                      required:
+                        - consent
+                        - subscription
+                      properties:
+                        consent:
+                          type: boolean
+                          example: true
+                          description: User has given the consent to the terms and conditions
+                        subscription:
+                          type: boolean
+                          example: true
+                          description: User has subscribed to the newsletter
+            error:
+              description: This object is a sample representation of error schema, the code and status might differ based on the error.
+              type: object
+              properties:
+                code: 
+                  type: string
+                  example: 'SUBx100'
+                status:
+                  type: string
+                  enum: 
+                    - "400"
+                    - "500"
+                  description: can contain 5xx or 4xx based on the error
+                detail:
+                  type: string
+                  example: 'Bad request - consent is missing or subscription is missing'
+  
+  
+  TriecSubmitApplication:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Join [ "", [ "Triec-Submit-Application", !Ref StackCode] ] 
+      Handler: dist/resources/application.submit
+      AutoPublishAlias: live
+      Runtime: nodejs20.x
+      Timeout: 28
+      MemorySize: 1024
+      Role: !Sub arn:aws:iam::${AWS::AccountId}:role/triec-basic-service-role
+      VpcConfig:
+        SecurityGroupIds: !Ref SecurityGroupIds
+        SubnetIds: !Ref SubnetIds
+      Events:
+        SubmitApplication:
+          Type: Api
+          Properties:
+            Path: /submit-application
+            Method: POST
+            RestApiId: !Ref ApplicationSubmissionAPI
+
