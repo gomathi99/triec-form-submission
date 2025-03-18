@@ -19,7 +19,8 @@ export class FormController {
         try {
             await this.ssmService.fetchSSMParameters();
             const requestBody = Validator.validateRequest(JSON.parse(event.body));
-            await this.formService.updateApplicationStatus(event.requestContext.authorizer.emailaddress, requestBody);
+            await this.formService.updateApplicationStatus(event.requestContext.authorizer.emailaddress, 
+                event.requestContext.authorizer.userType, requestBody);
             return Response.successResponse(204);
         } catch (error) {
             console.log("Error while submitting form:", error);

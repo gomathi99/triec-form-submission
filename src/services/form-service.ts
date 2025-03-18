@@ -14,9 +14,10 @@ export class FormService {
     
     
 
-    public async updateApplicationStatus(emailId: string, formModel: FormModel): Promise<void> {
+    public async updateApplicationStatus(emailId: string, userType: string, formModel: FormModel): Promise<void> {
         try {
-            const url = SalesforceConstants.GET_APPLICATION_STATUS.replace('email', emailId);
+            userType = APPLICATION_CONSTANTS.USER_TYPE_MAPPING[userType];
+            const url = SalesforceConstants.GET_APPLICATION_STATUS.replace('email', emailId).replace('userType', userType);
             const response = await this.salesforceGateway.getRecord(url);
             console.log('Response:', response);
             if(response) {
